@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Personal Finance Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#eef2f4;--surface:#fff;--ink:#14213d;--muted:#5d6b7a;--line:#d5dde3;--accent:#0f766e;--warn:#b7791f;--bad:#b42318;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1620;--surface:#16212e;--ink:#e6edf3;--muted:#8fa1b3;--line:#27384a;--accent:#38c4b4;--warn:#e3b341;--bad:#f2766b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1620;--surface:#16212e;--ink:#e6edf3;--muted:#8fa1b3;--line:#27384a;--accent:#38c4b4;--warn:#e3b341;--bad:#f2766b;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:860px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:1.5rem;font-weight:600;margin:0 0 4px}
+h2{font-size:1.05rem;font-weight:600;margin:0 0 12px}
+p.sub{margin:0 0 24px;color:var(--muted)}
+section{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px;margin-bottom:18px}
+.balance{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0;padding:0}
+.balance div{padding:18px;border-right:1px solid var(--line)}
+.balance div:last-child{border-right:0}
+.balance small{display:block;color:var(--muted);font-size:.85rem}
+.balance b{font-size:1.5rem;font-weight:600}
+.balance .net b{font-size:2rem}
+.pos{color:var(--accent)}.neg{color:var(--bad)}
+form{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input,select,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{cursor:pointer;background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+button.ghost{background:transparent;color:var(--bad);border-color:var(--line);padding:4px 8px;font-size:.85rem}
+.span2{grid-column:span 2}.span3{grid-column:span 3}
+#msg{min-height:1.4em;margin:10px 0 0;font-size:.92rem}
+.bar{height:8px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.row{padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tag{font-size:.8rem;margin-left:8px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);font-size:.93rem}
+th{color:var(--muted);font-weight:500;border-top:0}
+td.amt,th.amt{text-align:right}
+.empty{color:var(--muted);margin:4px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:700px){form{grid-template-columns:1fr 1fr}.span2,.span3{grid-column:span 2}.balance{grid-template-columns:1fr}.balance div{border-right:0;border-bottom:1px solid var(--line)}.balance div:last-child{border-bottom:0}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Personal Finance Manager</h1>
+  <p class="sub">Track income and expenses, set monthly budgets, and see where your money goes. Data stays in this browser.</p>
+
+  <section class="balance" aria-label="Summary">
+    <div class="net"><small>Balance</small><b id="bal">0.00 EGP</b></div>
+    <div><small>Total income</small><b id="inc">0.00 EGP</b></div>
+    <div><small>Total expenses</small><b id="exp">0.00 EGP</b></div>
+  </section>
+
+  <section>
+    <h2>Add a transaction</h2>
+    <form id="addForm">
+      <label>Type<select id="type"><option>Expense</option><option>Income</option></select></label>
+      <label class="span2">Title<input id="title" required maxlength="60" placeholder="Uber ride"></label>
+      <label>Amount (EGP)<input id="amount" type="number" min="0.01" step="0.01" required></label>
+      <label>Date<input id="date" type="date" required></label>
+      <label class="span3">Category (leave empty to auto-detect)<input id="category" maxlength="30" placeholder="food, transport…"></label>
+      <button class="span3" type="submit">Add transaction</button>
+    </form>
+    <p id="msg" role="status"></p>
+  </section>
+
+  <div class="two">
+    <section>
+      <h2>Monthly budgets</h2>
+      <p class="empty" style="margin-bottom:12px">Choose a category and the most you want to spend on it each month, for example food and 1000. Expenses in that category are counted against it.</p>
+      <form id="budgetForm" style="grid-template-columns:1fr 1fr">
+        <label>Category<input id="bCat" required maxlength="30"></label>
+        <label>Monthly limit<input id="bLim" type="number" min="1" step="1" required></label>
+        <button class="span2" type="submit">Save budget</button>
+      </form>
+      <div id="budgets" style="margin-top:12px"></div>
+    </section>
+
+    <section>
+      <h2>Monthly report</h2>
+      <label style="margin-bottom:8px">Month<input id="repMonth" type="month"></label>
+      <div id="report"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Transactions</h2>
+    <div class="scroll" id="txWrap"></div>
+  </section>
+</main>
+
+<script>
+const KEY = 'pfm-web-v1';
+let state = { tx: [], budgets: {}, nextId: 1 };
+try { const s = localStorage.getItem(KEY); if (s) state = JSON.parse(s); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EGP';
+const norm = s => s.trim().toLowerCase();
+const pad = n => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const sum = list => list.reduce((a, t) => a + t.amount, 0);
+const spent = (cat, m) => sum(state.tx.filter(t => t.type === 'Expense' && norm(t.category) === cat && t.date.slice(0, 7) === m));
+
+const RULES = {
+  food: ['pizza', 'burger', 'coffee', 'lunch', 'dinner', 'breakfast', 'restaurant', 'grocery', 'supermarket'],
+  transport: ['uber', 'careem', 'metro', 'bus', 'taxi', 'fuel', 'petrol', 'microbus'],
+  bills: ['electricity', 'water', 'internet', 'phone', 'wifi', 'rent'],
+  entertainment: ['netflix', 'spotify', 'cinema', 'game', 'movie'],
+  education: ['book', 'course', 'tuition', 'print', 'notes'],
+  health: ['pharmacy', 'doctor', 'medicine', 'clinic']
+};
+function suggest(title) {
+  const t = norm(title);
+  for (const [cat, words] of Object.entries(RULES)) if (words.some(w => t.includes(w))) return cat;
+  return 'other';
+}
+
+function say(text, kind) {
+  const m = $('msg');
+  m.textContent = text;
+  m.style.color = kind === 'bad' ? 'var(--bad)' : kind === 'warn' ? 'var(--warn)' : 'var(--accent)';
+}
+
+$('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const type = $('type').value, title = $('title').value.trim();
+  const amount = parseFloat($('amount').value), date = $('date').value;
+  if (!title || !(amount > 0) || !date) return say('Enter a title, an amount above zero, and a date.', 'bad');
+  let category = $('category').value.trim();
+  const auto = !category;
+  if (auto) category = suggest(title);
+  state.tx.push({ id: state.nextId++, title, amount, category, date, type });
+  save();
+  $('title').value = ''; $('amount').value = ''; $('category').value = '';
+  let note = type + ' added' + (auto ? ' in category “' + category + '”.' : '.');
+  let kind = 'ok';
+  if (type === 'Expense') {
+    const c = norm(category), lim = state.budgets[c];
+    if (lim) {
+      const s = spent(c, date.slice(0, 7));
+      if (s > lim) { note += ' You’ve exceeded your ' + c + ' budget.'; kind = 'bad'; }
+      else if (s >= 0.8 * lim) { note += ' You’ve used 80% of your ' + c + ' budget.'; kind = 'warn'; }
+    }
+  }
+  say(note, kind);
+  render();
+});
+
+$('budgetForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const c = norm($('bCat').value), lim = parseFloat($('bLim').value);
+  if (!c || !(lim > 0)) return;
+  state.budgets[c] = lim; save();
+  $('bCat').value = ''; $('bLim').value = '';
+  render();
+});
+
+function removeTx(id) { state.tx = state.tx.filter(t => t.id !== id); save(); render(); }
+function removeBudget(c) { delete state.budgets[c]; save(); render(); }
+window.removeTx = removeTx; window.removeBudget = removeBudget;
+
+$('repMonth').addEventListener('change', render);
+
+function render() {
+  const inc = sum(state.tx.filter(t => t.type === 'Income')), exp = sum(state.tx.filter(t => t.type === 'Expense'));
+  $('inc').textContent = fmt(inc); $('exp').textContent = fmt(exp);
+  $('bal').textContent = fmt(inc - exp);
+  $('bal').className = inc - exp < 0 ? 'neg' : 'pos';
+
+  // budgets (current month)
+  const cm = today().slice(0, 7), bs = Object.entries(state.budgets);
+  $('budgets').innerHTML = bs.length ? bs.map(([c, lim]) => {
+    const s = spent(c, cm), p = s / lim * 100;
+    const flag = p >= 100 ? '<span class="tag neg">Exceeded</span>' : p >= 80 ? '<span class="tag" style="color:var(--warn)">Almost there</span>' : '';
+    const color = p >= 100 ? 'var(--bad)' : p >= 80 ? 'var(--warn)' : 'var(--accent)';
+    return '<div class="row"><div class="top"><span>' + esc(c) + flag + '</span><span>' + fmt(s) + ' of ' + fmt(lim) +
+      ' <button class="ghost" onclick="removeBudget(\'' + esc(c).replace(/'/g, '') + '\')" aria-label="Remove budget ' + esc(c) + '">Remove</button></span></div>' +
+      '<div class="bar"><i style="width:' + Math.min(p, 100) + '%;background:' + color + '"></i></div></div>';
+  }).join('') : '<p class="empty">No budgets yet. Add one with the form above.</p>';
+
+  // report
+  const m = $('repMonth').value || cm;
+  if (!$('repMonth').value) $('repMonth').value = cm;
+  const mt = state.tx.filter(t => t.date.slice(0, 7) === m);
+  const mi = sum(mt.filter(t => t.type === 'Income')), me = sum(mt.filter(t => t.type === 'Expense'));
+  if (!mt.length) $('report').innerHTML = '<p class="empty">No transactions in this month.</p>';
+  else {
+    const by = {};
+    mt.filter(t => t.type === 'Expense').forEach(t => { const c = norm(t.category); by[c] = (by[c] || 0) + t.amount; });
+    const top = Object.entries(by).sort((a, b) => b[1] - a[1]);
+    $('report').innerHTML = '<div class="row"><div class="top"><span>Income</span><span>' + fmt(mi) + '</span></div>' +
+      '<div class="top"><span>Expenses</span><span>' + fmt(me) + '</span></div>' +
+      '<div class="top"><span>Saved</span><b class="' + (mi - me < 0 ? 'neg' : 'pos') + '">' + fmt(mi - me) + '</b></div></div>' +
+      (top.length ? top.map(([c, a]) => '<div class="row"><div class="top"><span>' + esc(c) + '</span><span>' + fmt(a) + ' (' + (a / me * 100).toFixed(0) + '%)</span></div><div class="bar"><i style="width:' + (a / me * 100) + '%"></i></div></div>').join('')
+        + '<p class="empty">Most spent on: <b>' + esc(top[0][0]) + '</b></p>' : '');
+  }
+
+  // transactions
+  $('txWrap').innerHTML = state.tx.length ?
+    '<table><thead><tr><th>ID</th><th>Date</th><th>Type</th><th>Category</th><th>Title</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
+    state.tx.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).map(t =>
+      '<tr><td>' + t.id + '</td><td>' + esc(t.date) + '</td><td>' + t.type + '</td><td>' + esc(t.category) + '</td><td>' + esc(t.title) +
+      '</td><td class="amt ' + (t.type === 'Income' ? 'pos' : '') + '">' + (t.type === 'Income' ? '+' : '−') + fmt(t.amount) +
+      '</td><td><button class="ghost" onclick="removeTx(' + t.id + ')" aria-label="Delete transaction ' + t.id + '">Delete</button></td></tr>').join('') +
+    '</tbody></table>' : '<p class="empty">No transactions yet. Add your first income or expense above.</p>';
+}
+
+$('date').value = today();
+render();
+</script>
+</body>
+</html>
